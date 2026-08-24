@@ -1,0 +1,20 @@
+﻿# Python
+__pycache__/
+*.py[cod]
+venv/
+.env
+
+# Java
+/target/
+*.class
+
+# Node
+node_modules/
+/dist/
+
+# Docker
+*.env
+
+# IDE
+.vscode/
+.idea/
