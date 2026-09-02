@@ -30,7 +30,7 @@ export type SolicitudInput = {
   ci: string;
   cultivoSolicitado: string;
   parcela: string;
-  departamento: Departamento;
+  departamento?: Departamento;
   montoSolicitado: number;
   plazoMeses: number;
 

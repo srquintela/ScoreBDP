@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { useVariant } from "@/components/ui/utils";
 import { cn } from "@/lib/utils";
 
 interface SelectProps {

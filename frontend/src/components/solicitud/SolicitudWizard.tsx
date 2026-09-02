@@ -49,6 +49,11 @@ export function SolicitudWizard() {
 
   async function enviar(e: React.FormEvent) {
     e.preventDefault();
+
+    if (!input.departamento) {
+      return;
+    }
+
     setEnviando(true);
     await crearSolicitud(input);
     // creaSolicitud redirige; por seguridad: si no redirige, volvemos al listado
@@ -113,11 +118,19 @@ export function SolicitudWizard() {
             />
           </Field>
           <Field label="Departamento">
-            <input
-              value={input.departamento}
-              onChange={(e) => set("departamento", e.target.value)}
+            <select
+              value={input.departamento ?? ""}
+              onChange={(e) => set("departamento", e.target.value as Departamento)}
               className={inputStyles}
-            />
+              required
+            >
+              <option value="">Selecciona un departamento</option>
+              {DEPARTAMENTOS_BOLIVIA.map((departamento) => (
+                <option key={departamento} value={departamento}>
+                  {departamento}
+                </option>
+              ))}
+            </select>
           </Field>
           <Field label="Monto solicitado (Bs)">
             <input

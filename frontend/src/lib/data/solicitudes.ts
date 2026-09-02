@@ -19,7 +19,7 @@ const base: Omit<SolicitudGuardada, "potencial" | "vocacion" | "complejidad" | "
   ci: "",
   cultivoSolicitado: "",
   parcela: "",
-  departamento: "",
+  departamento: undefined,
   montoSolicitado: 0,
   plazoMeses: 0,
   estado: "en_evaluacion",
