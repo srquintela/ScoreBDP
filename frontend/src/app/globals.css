@@ -1,0 +1,151 @@
+@import "tailwindcss";
+
+/* Modo oscuro por clase en <html> */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * Tokens por modo. Los nombres de color de Tailwind (`bg-wheat-50`, `text-soil-900`,
+ * ...) quedan definidos UNA sola vez en @theme apuntando a estas variables; cada
+ * variable se remapea en `:root` (claro) y en `.dark`, así el modo oscuro no
+ * duplica clases `dark:` por componente.
+ */
+:root {
+  /* Fondo y superficies: azul neutro frío muy pálido derivado de la familia
+     azul BDP; en modo oscuro deriva hacia azul-carbón (nunca negro puro). */
+  --c-wheat-50: #f4f7fb;
+  --c-wheat-100: #e9eff6;
+
+  /* Texto: neutros azulados de la misma familia (hierarquía por luminosidad) */
+  --c-soil-900: #16283d;
+  --c-soil-700: #2b4a6b;
+  --c-soil-600: #3d5f82;
+  --c-soil-500: #5b7b9c;
+  --c-soil-400: #7c93ab;
+
+  /* Familia azul institucional BDP (sin verde). La jerarquía se genera
+     variando luminosidad/saturación del azul, no con un segundo hue. */
+  --c-blue-900: #003366;  /* marca, headers, navbar, superficies oscuras */
+  --c-blue-700: #004a8f;  /* texto secundario / atención media */
+  --c-blue-600: #005fbc;  /* CTA primario, botones sólidos */
+  --c-blue-400: #00a0e3;  /* dato positivo, acentos, hover, gráficos */
+  --c-blue-100: #e0f0fb;  /* fondo para acento azul claro */
+  --c-cyan-300: #00b0d8;  /* detalle del isotipo, acento más claro */
+
+  /* Capa financiera */
+  --c-slate-700: #33414d;
+  --c-slate-500: #5c6b78;
+
+  /* Negativo / riesgo: rojo-ladrillo apagado de baja saturación, no compite
+     con el azul institucional y se lee como "atención" sin ser semáforo. */
+  --c-brick-700: #8c3b2e;
+  --c-brick-100: #f2dfda;
+
+  /* Campos de entrada (un poco más destacados que la superficie) */
+  --c-input: #ffffff;
+
+  /* Texto sobre fondos de acento (botones, badges, logos). Se mantiene claro
+     en ambos modos para conservar el contraste sobre el azul institucional. */
+  --c-on-accent: #f5f8fa;
+
+  color-scheme: light;
+}
+
+.dark {
+  /* Fondo azul-carbón muy oscuro (no negro puro), superficie un tono más clara */
+  --c-wheat-50: #0d1620;
+  --c-wheat-100: #16222e;
+
+  /* Texto claro azulado (misma jerarquía, invertida por luminosidad) */
+  --c-soil-900: #e8f0f7;
+  --c-soil-700: #c6d6e6;
+  --c-soil-600: #b3c4d6;
+  --c-soil-500: #93a9bf;
+  --c-soil-400: #7e93a8;
+
+  /* Azul aclarado para contraste AA sobre fondo oscuro */
+  --c-blue-900: #0b2338;
+  --c-blue-700: #2f6fae;
+  --c-blue-600: #3a86d4;
+  --c-blue-400: #4cb8f0;
+  --c-blue-100: #142b40;
+  --c-cyan-300: #00c2e6;
+
+  /* Capa financiera aclarada */
+  --c-slate-700: #d3dde4;
+  --c-slate-500: #93a7b6;
+
+  /* Riesgo aclarado para AA */
+  --c-brick-700: #b5544a;
+  --c-brick-100: #3d231e;
+
+  --c-input: #1b2733;
+
+  color-scheme: dark;
+}
+
+@theme {
+  --color-soil-900: var(--c-soil-900);
+  --color-soil-700: var(--c-soil-700);
+  --color-soil-600: var(--c-soil-600);
+  --color-soil-500: var(--c-soil-500);
+  --color-soil-400: var(--c-soil-400);
+
+  --color-wheat-100: var(--c-wheat-100);
+  --color-wheat-50: var(--c-wheat-50);
+
+  --color-blue-900: var(--c-blue-900);
+  --color-blue-700: var(--c-blue-700);
+  --color-blue-600: var(--c-blue-600);
+  --color-blue-400: var(--c-blue-400);
+  --color-blue-100: var(--c-blue-100);
+  --color-cyan-300: var(--c-cyan-300);
+
+  --color-slate-700: var(--c-slate-700);
+  --color-slate-500: var(--c-slate-500);
+
+  --color-brick-700: var(--c-brick-700);
+  --color-brick-100: var(--c-brick-100);
+
+  --color-input: var(--c-input);
+  --color-on-accent: var(--c-on-accent);
+
+  --color-volume-border: var(--c-wheat-100);
+  --color-volume-strong: var(--c-soil-900);
+
+  --font-display: var(--font-display);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+  }
+
+  html.dark {
+    --_focus-ring: var(--c-blue-400);
+  }
+
+  /* Cifras de score, moneda y porcentajes: tabulares y monolíticas */
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Foco de teclado visible en toda la app */
+  :focus-visible {
+    outline: 2px solid var(--color-blue-600);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background-color: var(--color-blue-100);
+  }
+}
+
+/* Transición suave al cambiar de modo */
+@media (prefers-reduced-motion: no-preference) {
+  html.theme-transition,
+  html.theme-transition * {
+    transition: background-color 0.25s ease, color 0.25s ease, border-color 0.25s ease;
+  }
+}
