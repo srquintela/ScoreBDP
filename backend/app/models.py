@@ -81,13 +81,15 @@ class F_SCO_SCORE(Base):
     __tablename__ = 'F_SCO_SCORE'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    ci = Column(String(20))
-    codmunicipio = Column(String(10))
-    caedec = Column(String(20))
-    idproducto = Column(Integer)
-    idburo = Column(Integer)
-    score = Column(Numeric)
-    score_letra = Column(String(2))
+    idsolicitud = Column(Integer)
+    scorefinanciero = Column(Numeric(10,2))
+    scoreviabilidad = Column(Numeric(10,2))
+    scoreadopcion = Column(Numeric(10,2))
+    scoremercado = Column(Numeric(10,2))
+    scoreclima = Column(Numeric(10,2))
+    score = Column(Numeric(10,2))
+    # some DB schemas use `scoreletra` (no underscore); map Python attribute to that column name
+    scoreletra = Column(String(2))
     fecha = Column(DateTime)
 
 
@@ -163,7 +165,7 @@ class F_SCO_CLIMA(Base):
     __tablename__ = 'F_SCO_CLIMA'
 
     id = Column(Integer, F_SCO_CLIMA_seq, primary_key=True)
-    cod_municipio = Column(String(10))
+    codmunicipio = Column(String(10))
     mes = Column(Integer)
     probhelada = Column(Numeric(5, 2))
     probinundacion = Column(Numeric(5, 2))

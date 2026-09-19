@@ -70,7 +70,21 @@ export default {
     }
 
     const onScore = (row) => {
-      alert(`Score action for solicitud id ${row.id}`)
+      // call backend to generate and persist the score for this solicitud
+      (async () => {
+        try {
+          const r = await api.post(`/api/score/generate/${row.id}`)
+          if (r && r.data && r.data.score) {
+            const sc = r.data.score
+            alert(`Score generated: ${sc.score} (letter: ${sc.score_letra || sc.scoreletra || 'N/A'})`)
+          } else {
+            alert('Score generated')
+          }
+        } catch (e) {
+          console.error(e)
+          alert('Error generating score')
+        }
+      })()
     }
 
     onMounted(() => loadAll())

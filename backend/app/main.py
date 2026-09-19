@@ -9,6 +9,7 @@ from datetime import datetime
 from . import models
 from .schemas import SolicitudCreate, PesosCreate
 from sqlalchemy import select, func
+import math
 
 
 def model_to_dict(obj):
@@ -51,39 +52,131 @@ def startup():
         pass
 
 
-def compute(raw_factors: dict, weights: dict):
-    contributions = {}
-    raw_score = 0.0
-    for k, v in raw_factors.items():
-        w = float(weights.get(k, 0.0))
-        contributions[k] = v * w
-        raw_score += contributions[k]
-    total_weight = sum(float(weights.get(k, 0.0)) for k in weights)
-    final_score = raw_score / total_weight if total_weight > 0 else raw_score
-    return raw_score, final_score, contributions
-
 
 def get_baseline_score_by_ci(ci: str):
-    """Lookup the latest bureau rating for `ci` and return normalized baseline score and risk text."""
+    """Lookup the latest bureau rating for `ci` and return the normalized baseline score (sbase).
+
+    Returns a float (0.0..1.0) or None when not available.
+    """
     if not ci:
-        return {"ci": None, "calif": None, "sbase": None, "risk": "ci missing"}
+        return None
     s = get_db_session()
     try:
         # prefer the latest bureau record by fecha if present
         buro = s.query(models.F_SCO_BURO).filter(models.F_SCO_BURO.ci == ci).order_by(models.F_SCO_BURO.fecha.desc()).first()
         if not buro or not buro.calif:
-            return {"ci": ci, "calif": None, "sbase": None, "risk": "Unknown"}
+            return None
         cal = (buro.calif or '').strip().upper()
         mapping = {
-            'A': (1.0, 'Very Low Risk'),
-            'B': (0.8, 'Low Risk'),
-            'C': (0.6, 'Moderate Risk'),
-            'D': (0.4, 'Elevated Risk'),
-            'E': (0.2, 'High Risk'),
-            'F': (0.0, 'Default / Severe Risk')
+            'A': 1.0,
+            'B': 0.8,
+            'C': 0.6,
+            'D': 0.4,
+            'E': 0.2,
+            'F': 0.0,
         }
-        sbase, risk = mapping.get(cal, (None, 'Unknown'))
-        return {"ci": ci, "calif": cal, "sbase": sbase, "risk": risk}
+        return mapping.get(cal)
+    finally:
+        s.close()
+
+
+@app.post('/api/score/generate/{solicitud_id}')
+def generate_score(solicitud_id: int):
+    """Generate and persist a score for the given solicitud id.
+
+    The function reads the solicitud, computes component scores using the
+    helper functions and the latest pesos, stores a new row in F_SCO_SCORE
+    and returns the created score record.
+    """
+    s = get_db_session()
+    try:
+        solicitud = s.get(models.F_SCO_SOLICITUD, solicitud_id)
+        if not solicitud:
+            raise HTTPException(status_code=404, detail="solicitud not found")
+
+        # baseline (financial profile) - helper now returns sbase (float) or None
+        score_fin = get_baseline_score_by_ci(solicitud.ci) if solicitud.ci else None
+
+        # product description for product-based helpers
+        prod_name = None
+        if solicitud.idproducto:
+            prod = s.get(models.F_SCO_PRODUCTOS, solicitud.idproducto)
+            if prod:
+                prod_name = prod.descripcion
+
+        # complejidad (viabilidad)
+        score_via = get_complejidad_score_by_codmunicipio_producto(solicitud.codmunicipio, prod_name)
+
+        # sector (adopcion) -> helper returns dict with 'sector_score'
+        sector_res = get_sector_score_by_codmunicipio_producto(solicitud.codmunicipio, prod_name)
+        score_adop = None
+        if isinstance(sector_res, dict):
+            score_adop = sector_res.get('sector_score')
+
+        # vocacion (mercado)
+        score_merc = get_vocacion_score_by_codmunicipio_producto(solicitud.codmunicipio, prod_name)
+
+        # clima
+        score_clima = get_clima_by_codmunicipio_mes(solicitud.codmunicipio, solicitud.messiembra)
+
+        # latest pesos
+        pesos = s.query(models.F_SCO_PESOS).order_by(models.F_SCO_PESOS.fecha.desc()).first()
+        if pesos:
+            pf = float(pesos.perfil_financiero or 0.0) / 100.0
+            viab_w = float(pesos.viabilidad or 0.0) / 100.0
+            adop_w = float(pesos.adopcion or 0.0) / 100.0
+            merc_w = float(pesos.mercado or 0.0) / 100.0
+            riesgo_w = float(pesos.riesgo_climatico or 0.0) / 100.0
+        else:
+            # sensible defaults if no pesos configured
+            pf = viab_w = adop_w = merc_w = riesgo_w = 0.2
+
+        # coerce component values to floats with safe defaults
+        sf = float(score_fin) if score_fin is not None else 0.0
+        sv = float(score_via) if score_via is not None else 0.0
+        sa = float(score_adop) if score_adop is not None else 0.0
+        sm = float(score_merc) if score_merc is not None else 0.0
+        sc = float(score_clima) if score_clima is not None else 0.0
+
+        # compute final score per formula (weights treated as fractions)
+        try:
+            final_score = 1000.0 * ((pf * sf) + (viab_w * sv) + (adop_w * sa) + (merc_w * sm) + (riesgo_w * (1.0 - sc)))
+        except Exception:
+            final_score = None
+
+        # derive letter grade from normalized score (0..1)
+        letter = None
+        if final_score is not None:
+            norm = final_score / 1000.0
+            if norm >= 0.9:
+                letter = 'A'
+            elif norm >= 0.7:
+                letter = 'B'
+            elif norm >= 0.5:
+                letter = 'C'
+            elif norm >= 0.3:
+                letter = 'D'
+            elif norm >= 0.1:
+                letter = 'E'
+            else:
+                letter = 'F'
+
+        score_obj = models.F_SCO_SCORE(
+            idsolicitud=solicitud.id,
+            scorefinanciero=sf,
+            scoreviabilidad=sv,
+            scoreadopcion=sa,
+            scoremercado=sm,
+            scoreclima=sc,
+            score=final_score,
+            scoreletra=letter,
+            fecha=datetime.utcnow()
+        )
+
+        s.add(score_obj)
+        s.commit()
+        s.refresh(score_obj)
+        return { 'status': 'ok', 'score': model_to_dict(score_obj) }
     finally:
         s.close()
 
@@ -92,6 +185,203 @@ def get_baseline_score_by_ci(ci: str):
 def api_get_baseline(ci: str):
     """HTTP endpoint: GET /api/score/baseline?ci=... returns baseline score and risk interpretation."""
     return get_baseline_score_by_ci(ci)
+
+
+def get_sector_score_by_codmunicipio_producto(codmunicipio: str, producto: str):
+    """Compute a normalized sector score for given codmunicipio and producto.
+
+    Steps:
+    - query F_SCO_SECTOR rows matching codmunicipio and producto
+    - parse numeric `valor` values and compute the mean
+    - apply normalization: sector_score = ((log10(mean_val) + 3.1549) / 12.9723)
+    Returns dict with inputs, mean_val, sector_score (or None if unavailable).
+    """
+    if not codmunicipio or not producto:
+        return {"codmunicipio": codmunicipio, "producto": producto, "mean_val": None, "sector_score": None}
+    s = get_db_session()
+    try:
+        rows = s.query(models.F_SCO_SECTOR).filter(
+            models.F_SCO_SECTOR.codmunicipio == codmunicipio,
+            models.F_SCO_SECTOR.producto == producto
+        ).all()
+        vals = []
+        for r in rows:
+            raw = r.valor
+            if raw is None:
+                continue
+            try:
+                # allow commas as decimal separators
+                txt = str(raw).strip().replace(',', '.')
+                v = float(txt)
+                if v > 0:
+                    vals.append(v)
+            except Exception:
+                continue
+        if not vals:
+            return {"codmunicipio": codmunicipio, "producto": producto, "mean_val": None, "sector_score": None}
+        mean_val = sum(vals) / len(vals)
+        try:
+            sector_score = ((math.log10(mean_val) + 3.1549) / 12.9723)
+        except Exception:
+            sector_score = None
+        return {"codmunicipio": codmunicipio, "producto": producto, "mean_val": mean_val, "sector_score": sector_score}
+    finally:
+        s.close()
+
+
+@app.get('/api/score/sector')
+def api_get_sector_score(codmunicipio: str, producto: str):
+    """HTTP endpoint: GET /api/score/sector?codmunicipio=...&producto=..."""
+    return get_sector_score_by_codmunicipio_producto(codmunicipio, producto)
+
+
+def get_vocacion_score_by_codmunicipio_producto(codmunicipio: str, producto: str):
+    """Return the normalized vocacion score (float) for the given codmunicipio and producto.
+
+    The function reads `vcr` values from `F_SCO_COMPLEJIDADES`, computes the mean
+    and applies the normalization: vocacion_score = mean_vcr / (mean_vcr + 1).
+    Returns a float or None when unavailable.
+    """
+    if not codmunicipio or not producto:
+        return None
+    s = get_db_session()
+    try:
+        rows = s.query(models.F_SCO_COMPLEJIDADES).filter(
+            models.F_SCO_COMPLEJIDADES.codmunicipio == codmunicipio,
+            models.F_SCO_COMPLEJIDADES.producto == producto
+        ).all()
+        vals = []
+        for r in rows:
+            raw = r.vcr
+            if raw is None:
+                continue
+            try:
+                v = float(raw)
+                vals.append(v)
+            except Exception:
+                continue
+        if not vals:
+            return None
+        mean_vcr = sum(vals) / len(vals)
+        try:
+            vocacion_score = mean_vcr / (mean_vcr + 1)
+        except Exception:
+            vocacion_score = None
+        return vocacion_score
+    finally:
+        s.close()
+
+
+@app.get('/api/score/vocacion')
+def api_get_vocacion_score(codmunicipio: str, producto: str):
+    """HTTP endpoint: GET /api/score/vocacion?codmunicipio=...&producto=..."""
+    val = get_vocacion_score_by_codmunicipio_producto(codmunicipio, producto)
+    return {"codmunicipio": codmunicipio, "producto": producto, "vocacion_score": val}
+
+
+def get_complejidad_score_by_codmunicipio_producto(codmunicipio: str, producto: str):
+    """Return the normalized complejidad score (float) for the given codmunicipio and producto.
+
+    Reads `bs` values from `F_SCO_COMPLEJIDADES`, computes the mean and applies:
+      complejidad_score = log10(1 + mean_bs) / 7.7482
+    Returns a float or None when unavailable.
+    """
+    if not codmunicipio or not producto:
+        return None
+    s = get_db_session()
+    try:
+        rows = s.query(models.F_SCO_COMPLEJIDADES).filter(
+            models.F_SCO_COMPLEJIDADES.codmunicipio == codmunicipio,
+            models.F_SCO_COMPLEJIDADES.producto == producto
+        ).all()
+        vals = []
+        for r in rows:
+            raw = r.bs
+            if raw is None:
+                continue
+            try:
+                v = float(raw)
+                vals.append(v)
+            except Exception:
+                continue
+        if not vals:
+            return None
+        mean_bs = sum(vals) / len(vals)
+        try:
+            # ensure argument to log10 is positive
+            arg = 1.0 + mean_bs
+            if arg <= 0:
+                return None
+            complejidad_score = math.log10(arg) / 7.7482
+        except Exception:
+            complejidad_score = None
+        return complejidad_score
+    finally:
+        s.close()
+
+
+@app.get('/api/score/complejidad')
+def api_get_complejidad_score(codmunicipio: str, producto: str):
+    """HTTP endpoint: GET /api/score/complejidad?codmunicipio=...&producto=..."""
+    val = get_complejidad_score_by_codmunicipio_producto(codmunicipio, producto)
+    return {"codmunicipio": codmunicipio, "producto": producto, "complejidad_score": val}
+
+
+def get_clima_by_codmunicipio_mes(codmunicipio: str, mes: int):
+    """Return a clima score for a municipality and month.
+
+    Reads matching rows from `F_SCO_CLIMA`, averages the `probhelada`, `probinundacion`,
+    and `probsequia` fields (expected as percentages 0..100) and computes:
+      clima_score = 1 - ((1 - p_h) * (1 - p_i) * (1 - p_s))
+    where p_* = prob* * 0.01.
+    Returns a float in [0,1] or None when unavailable.
+    """
+    if not codmunicipio or mes is None:
+        return None
+    s = get_db_session()
+    try:
+        rows = s.query(models.F_SCO_CLIMA).filter(
+            models.F_SCO_CLIMA.codmunicipio == codmunicipio,
+            models.F_SCO_CLIMA.mes == mes
+        ).all()
+        if not rows:
+            return None
+        heladas = []
+        inundaciones = []
+        sequias = []
+        for r in rows:
+            try:
+                if r.probhelada is not None:
+                    heladas.append(float(r.probhelada))
+                if r.probinundacion is not None:
+                    inundaciones.append(float(r.probinundacion))
+                if r.probsequia is not None:
+                    sequias.append(float(r.probsequia))
+            except Exception:
+                continue
+        if not heladas and not inundaciones and not sequias:
+            return None
+        # use mean where available, default 0 when a specific prob is missing
+        mean_h = (sum(heladas) / len(heladas)) if heladas else 0.0
+        mean_i = (sum(inundaciones) / len(inundaciones)) if inundaciones else 0.0
+        mean_s = (sum(sequias) / len(sequias)) if sequias else 0.0
+        p_h = mean_h * 0.01
+        p_i = mean_i * 0.01
+        p_s = mean_s * 0.01
+        try:
+            clima_score = 1.0 - ((1.0 - p_h) * (1.0 - p_i) * (1.0 - p_s))
+        except Exception:
+            clima_score = None
+        return clima_score
+    finally:
+        s.close()
+
+
+@app.get('/api/score/clima')
+def api_get_clima_score(codmunicipio: str, mes: int):
+    """HTTP endpoint: GET /api/score/clima?codmunicipio=...&mes=..."""
+    val = get_clima_by_codmunicipio_mes(codmunicipio, mes)
+    return {"codmunicipio": codmunicipio, "mes": mes, "clima_score": val}
 
 
 @app.get("/demo")
@@ -317,13 +607,6 @@ def list_solicitudes(item_id: int = None):
         s.close()
 
 
-@app.post("/score", response_model=ScoreResponse)
-def post_score(payload: ScoreRequest):
-    # For now compute using equal weights (weights table removed).
-    factors = payload.factors.dict()
-    weights = {k: 1.0 for k in factors.keys()}
-    raw_score, final_score, contributions = compute(factors, weights)
-    return {"raw_score": raw_score, "final_score": final_score, "contributions": contributions}
 
 
 # --- Generic CRUD endpoints for models ---
