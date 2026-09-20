@@ -176,7 +176,25 @@ def generate_score(solicitud_id: int):
         s.add(score_obj)
         s.commit()
         s.refresh(score_obj)
-        return { 'status': 'ok', 'score': model_to_dict(score_obj) }
+        # include the pesos used (original values as stored, or defaults)
+        pesos_values = None
+        if pesos:
+            pesos_values = {
+                'perfil_financiero': float(pesos.perfil_financiero or 0.0),
+                'viabilidad': float(pesos.viabilidad or 0.0),
+                'adopcion': float(pesos.adopcion or 0.0),
+                'mercado': float(pesos.mercado or 0.0),
+                'riesgo_climatico': float(pesos.riesgo_climatico or 0.0),
+            }
+        else:
+            pesos_values = {
+                'perfil_financiero': 20.0,
+                'viabilidad': 20.0,
+                'adopcion': 20.0,
+                'mercado': 20.0,
+                'riesgo_climatico': 20.0,
+            }
+        return { 'status': 'ok', 'score': model_to_dict(score_obj), 'pesos': pesos_values }
     finally:
         s.close()
 

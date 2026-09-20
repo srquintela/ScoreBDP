@@ -1,7 +1,7 @@
 <template>
   <header class="header">
     <div style="display:flex;align-items:center;gap:12px">
-      <img src="/logo.svg" alt="logo" style="height:34px"/>
+      <img src="/bdplogo.png" alt="BDP logo" style="height:38px"/>
       <div>{{ dateStr }}</div>
     </div>
     <div style="display:flex;align-items:center;gap:12px">
@@ -15,7 +15,7 @@
 import { ref } from 'vue'
 export default {
   setup() {
-    const user = { name: 'demo.user' }
+    const user = { name: 'usuario demo' }
     const dateStr = new Date().toLocaleString()
     const logout = () => alert('Logout stub')
     return { user, dateStr, logout }

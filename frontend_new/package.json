@@ -9,10 +9,11 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@tabler/core": "^1.5.0",
     "axios": "^1.4.0",
+    "chart.js": "^4.5.1",
     "vue": "^3.3.4",
-    "vue-router": "^4.2.2",
-    "@tabler/core": "^1.5.0"
+    "vue-router": "^4.2.2"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^6.0.9",
