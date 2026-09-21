@@ -1,7 +1,11 @@
 {
   "ExpandedNodes": [
-    ""
+    "",
+    "\\backend",
+    "\\backend\\app",
+    "\\frontend_new",
+    "\\frontend_new\\src"
   ],
-  "SelectedNode": "\\C:\\Users\\squintela\\Source\\Repos\\ScoreBDP",
+  "SelectedNode": "\\backend\\app\\main.py",
   "PreviewInSolutionExplorer": false
 }
