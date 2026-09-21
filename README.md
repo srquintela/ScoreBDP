@@ -6,12 +6,8 @@ Hackathon BDP Innovatec 2026. Calificación basada en reglas (no caja negra),
 
 ## Stack
 
-- **Next.js 16.3.3** (App Router)
-- **TypeScript** estricto
-- **Tailwind CSS v4** (tokens vía `@theme` en `globals.css`)
-- **React 19** (Server Components por defecto, Client Components solo donde hay interactividad)
-- **Auth**: JWT firmado con `jose` en cookie HTTP-only, Secure, SameSite=Lax
-- **Rutas protegidas**: `src/proxy.ts` (middleware) + revalidación por rol en el layout
+- **Python
+- **Vanilla javascript
 
 ## Requisitos
 
