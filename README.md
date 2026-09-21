@@ -122,3 +122,48 @@ políticas de filtrado/validación en los endpoints. Los helpers de scoring son
 puros y deben ser testeables y auditables antes de ser usados en un flujo
 operativo.
 
+- Backend: revisa `backend/.env.example` (conexión DB, secretos, oracledb
+  variables). Para pruebas locales la API puede correr con datos en memoria.
+- Frontend: `frontend_new/.env` puede incluir `VITE_BACKEND_URL` para apuntar
+  al backend (por defecto `http://localhost:8000`).
+
+Arquitectura — visión general
+
+```
+[browser] <---> [frontend_new (Vue + Vite)] <---> [backend (FastAPI)]
+                                           \-> [Oracle / DB (optional)]
+                                           \-> [persistence layer / models]
+```
+
+Guía rápida de uso (handbook básico)
+
+- Abrir `Lista de solicitudes` y localizar la fila deseada.
+- Presionar el botón `SCORE` junto a la solicitud para invocar
+  `/api/score/generate/{id}`. El backend calculará las capas y guardará la
+  puntuación (según configuración de persistencia).
+- Se abrirá un modal con:
+  - columna izquierda: desglose por componente (scores y pesos) y etiquetas
+    de riesgo;
+  - columna central: gráfico de líneas con pesos y scores por componente;
+  - columna derecha: semicírculo SVG mostrando el `Score BDP` numérico.
+
+Interpretación rápida del Score
+- Los componentes muestran valores normalizados (0..1) y pesos (%).
+- El `Score BDP` final se presenta en la escala usada por el proyecto
+  (en la demo el campo `final_score` puede estar en 0..1000 o 0..100; el UI
+  normaliza para visualización). Confirma la unidad con tu equipo si vas a
+  integrar en producción.
+
+Contribuir
+
+- Crear una rama por feature: `git checkout -b feat/mi-cambio`.
+- Mantener commits pequeños y autoexplicativos.
+- Ejecutar linters / tests si están configurados.
+
+Soporte y notas finales
+
+Si vas a conectar este proyecto a sistemas reales (producción), revisa
+cuidadosamente las definiciones de tabla en `backend/app/models.py` y las
+políticas de filtrado/validación en los endpoints. Los helpers de scoring son
+puros y deben ser testeables y auditables antes de ser usados en un flujo
+operativo.
