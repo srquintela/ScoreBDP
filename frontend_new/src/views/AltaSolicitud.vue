@@ -154,7 +154,7 @@ export default {
       if (!form.departamento) errors.value.push('Departamento requerido')
       if (!form.municipio) errors.value.push('Municipio requerido')
       if (!form.producto) errors.value.push('Producto requerido')
-      if (!form.monto || isNaN(Number(form.monto))) errors.value.push('Monto debe ser un número')
+      if (!form.monto || isNaN(Number(form.monto))) errors.value.push('Monto debe ser un nÃºmero')
       if (!form.messiembra) errors.value.push('Mes siembra requerido')
       return errors.value.length === 0
     }

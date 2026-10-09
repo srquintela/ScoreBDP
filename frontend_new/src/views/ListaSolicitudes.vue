@@ -240,7 +240,7 @@ export default {
     const gaugeColor = computed(() => '#1d63ed')
     const gaugePercent = computed(() => {
       if (!modal.value) return 0
-      // backend final_score may be 0..1000 — normalize to 0..100
+      // backend final_score may be 0..1000 â€” normalize to 0..100
       const raw = Number(modal.value.final_score || 0)
       const clamped = Math.max(0, Math.min(1000, raw))
       return (clamped / 1000) * 100

@@ -72,7 +72,7 @@ export default {
       const parts = [form.perfil, form.viabilidad, form.adopcion, form.mercado, form.riesgoclimatico]
       for (const p of parts) {
         if (p === null || p === undefined || isNaN(Number(p))) {
-          error.value = 'Todos los pesos deben ser números válidos entre 0 y 100.'
+          error.value = 'Todos los pesos deben ser nÃºmeros vÃ¡lidos entre 0 y 100.'
           return
         }
         if (Number(p) < 0 || Number(p) > 100) {

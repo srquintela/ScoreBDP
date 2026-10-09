@@ -1,0 +1,39 @@
+.viewport {
+  position: relative;
+  z-index: 0;
+  height: 20rem;
+  width: 100%;
+  background: var(--muted);
+  font-family: var(--font-system);
+}
+
+@media (min-width: 640px) {
+  .viewport {
+    height: 24rem;
+  }
+}
+
+.marker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--primary-foreground);
+  border-radius: 50%;
+  background: var(--primary);
+  box-shadow: 0 0 0 2px var(--primary);
+}
+
+.marker::after {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--primary-foreground);
+}
+
+.viewport :global(.leaflet-interactive) {
+  outline-offset: 3px;
+}
+.viewport :global(.leaflet-control-attribution) {
+  font-size: 11px;
+}
